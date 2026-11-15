@@ -21,8 +21,8 @@ SITES = [
  ('leypedia.com','Leypedia'),('culinapedia.com','Culinapedia'),('worldwinepedia.com','WorldWinepedia'),
  ('tenispedia.com','Tenispedia'),('ludicopedia.com','Ludicopedia'),('catdogpedia.com','CatDogpedia'),
  ('iapedia.si','IApedia'),('farmacos.ai','Farmacos.ai'),('enfermeria.si','Enfermería Sí'),
- ('saberinvertir.si','Saber Invertir'),('celebraciones.org','Celebraciones'),
- ('sustainablefashionfest.com','Sustainable Fashion Fest'),('modasostenible.es','Moda Sostenible'),
+ ('saberparainvertir.com','Saber para Invertir'),('celebraciones.org','Celebraciones'),
+
  ('zodiacopedia.com','Zodiacopedia'),('sitges.si','Sitges'),('santperederibes.si','Sant Pere de Ribes'),
  ('castelldefels.si','Castelldefels'),('vilanova.si','Vilanova i la Geltrú'),('santcugat.si','Sant Cugat'),
  ('garraf.si','Garraf'),('eivissa.si','Eivissa y Formentera'),('planetpedia.net','Planetpedia'),
