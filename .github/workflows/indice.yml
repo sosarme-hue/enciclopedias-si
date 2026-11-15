@@ -16,6 +16,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python3 tools/build_index.py
+      - run: python3 tools/build_content.py
       - name: Guardar índice
         run: |
           git config user.name "github-actions[bot]"
