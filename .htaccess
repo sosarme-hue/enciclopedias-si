@@ -2,6 +2,9 @@ Options -Indexes
 DirectoryIndex index.html
 RewriteEngine On
 
+# Carpetas internas
+RewriteRule ^(\.git|\.github|tools)(/|$) - [R=404,L]
+
 # encyclopedias.si (dominio en inglés) -> enciclopedias.si/en/
 RewriteCond %{HTTP_HOST} ^(www\.)?encyclopedias\.si$ [NC]
 RewriteRule ^(?:en/?)?(.*)$ https://enciclopedias.si/en/$1 [R=301,L]
