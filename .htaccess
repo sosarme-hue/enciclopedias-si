@@ -1,0 +1,24 @@
+Options -Indexes
+DirectoryIndex index.html
+RewriteEngine On
+
+# encyclopedias.si (dominio en inglés) -> enciclopedias.si/en/
+RewriteCond %{HTTP_HOST} ^(www\.)?encyclopedias\.si$ [NC]
+RewriteRule ^(?:en/?)?(.*)$ https://enciclopedias.si/en/$1 [R=301,L]
+
+# www y http -> https://enciclopedias.si
+RewriteCond %{HTTP_HOST} ^www\.enciclopedias\.si$ [NC,OR]
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://enciclopedias.si/$1 [R=301,L]
+
+# /index.html -> carpeta
+RewriteCond %{THE_REQUEST} \s/+(.*/)?index\.html[\s?] [NC]
+RewriteRule ^(.*/)?index\.html$ https://enciclopedias.si/$1 [R=301,L]
+
+<IfModule mod_expires.c>
+ExpiresActive On
+ExpiresByType image/webp "access plus 1 month"
+ExpiresByType image/jpeg "access plus 1 month"
+ExpiresByType image/png "access plus 1 month"
+ExpiresByType text/html "access plus 1 hour"
+</IfModule>
