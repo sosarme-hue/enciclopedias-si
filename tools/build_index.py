@@ -6,10 +6,12 @@ Guarda una caché (search/cache.json) para no volver a descargar páginas que no
 Solo usa la biblioteca estándar de Python.
 """
 import concurrent.futures as cf, gzip, html, io, json, os, re, sys, time, urllib.parse, urllib.request
+import shutil, unicodedata
 import xml.etree.ElementTree as ET
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, 'search', 'index.json')
+OUT = os.path.join(ROOT, 'search', 'meta.json')
+SHARDS = os.path.join(ROOT, 'search', 's')
 CACHE = os.path.join(ROOT, 'search', 'cache.json')
 UA = 'EnciclopediasSiIndexer/1.0 (+https://enciclopedias.si/)'
 SITES = [
@@ -25,10 +27,10 @@ SITES = [
  ('castelldefels.si','Castelldefels'),('vilanova.si','Vilanova i la Geltrú'),('santcugat.si','Sant Cugat'),
  ('garraf.si','Garraf'),('eivissa.si','Eivissa y Formentera'),('planetpedia.net','Planetpedia'),
 ]
-MAX_URLS_PER_SITE = int(os.environ.get('MAX_URLS_PER_SITE', '40000'))
-MAX_FETCH_PER_RUN = int(os.environ.get('MAX_FETCH_PER_RUN', '60000'))   # páginas nuevas por ejecución
+MAX_URLS_PER_SITE = int(os.environ.get('MAX_URLS_PER_SITE', '100000'))
+MAX_FETCH_PER_RUN = int(os.environ.get('MAX_FETCH_PER_RUN', '300000'))   # páginas nuevas por ejecución
 TIME_BUDGET = int(os.environ.get('TIME_BUDGET', str(5 * 3600)))           # segundos
-WORKERS = int(os.environ.get('WORKERS', '6'))
+WORKERS = int(os.environ.get('WORKERS', '10'))
 SKIP = re.compile(r'\.(jpe?g|png|gif|webp|svg|pdf|zip|mp3|mp4|xml|json|css|js)(\?|$)|/(wp-admin|wp-json|feed|tag|author|page/\d+|cart|checkout|my-account|aviso-legal|avis-legal|cookies|galetes|privacidad|privacitat|privacy|legal|politica)', re.I)
 T0 = time.time()
 
@@ -100,6 +102,34 @@ def fetch_title(url, site_name):
     except Exception: pass
     return None
 
+def norm(s):
+    s = unicodedata.normalize('NFD', s.lower())
+    return ''.join(c for c in s if unicodedata.category(c) != 'Mn')
+
+STOP = set('de del la las el los en y e o u a al un una con por para the of and in on to for at des les le du et di da do dos das der die und von il lo per i'.split())
+
+def shard_key(word):
+    """Clave = primeras 3 letras de la palabra (o la palabra entera si tiene 2)."""
+    if word in STOP: return None
+    return word[:3]
+
+def write_shards(items):
+    """Un archivo por cada inicio de palabra (3 letras): el navegador solo descarga el que necesita."""
+    shards = {}
+    for it in items:
+        keys = {shard_key(w) for w in re.split(r'[^a-z0-9]+', norm(it[0])) if len(w) >= 2}
+        for k in keys:
+            if k: shards.setdefault(k, []).append(it)
+    shutil.rmtree(SHARDS, ignore_errors=True); os.makedirs(SHARDS)
+    for k, lst in shards.items():
+        json.dump(lst, open(os.path.join(SHARDS, k + '.json'), 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
+    old = os.path.join(ROOT, 'search', 'index.json')
+    if os.path.exists(old): os.remove(old)
+    json.dump({'generated': time.strftime('%Y-%m-%d'), 'count': len(items), 'sites': [[d, n] for d, n in SITES]},
+              open(OUT, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
+    big = max(shards.values(), key=len)
+    print(f'{len(shards)} archivos de índice; el mayor tiene {len(big)} entradas', flush=True)
+
 def main():
     cache = {}
     if os.path.exists(CACHE):
@@ -139,11 +169,9 @@ def main():
             items.append([title, si, path, lang_of(p.path)])
         print(f'{dom}: {len(clean)} urls, {len([l for l in got if got[l]])} títulos nuevos', flush=True)
     items.sort(key=lambda x: (x[0].lower(), x[1]))
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    json.dump({'generated': time.strftime('%Y-%m-%d'), 'sites': [[d, n] for d, n in SITES], 'items': items},
-              open(OUT, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
+    write_shards(items)
     json.dump(newcache, open(CACHE, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
-    print(f'Total: {len(items)} entradas · {os.path.getsize(OUT)//1024} KB · {int(time.time()-T0)} s')
+    print(f'Total: {len(items)} entradas · {int(time.time()-T0)} s')
 
 if __name__ == '__main__':
     main()
