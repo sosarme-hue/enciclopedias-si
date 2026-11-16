@@ -1,15 +1,20 @@
 <?php
-// Muestra el pie (footer) tal como se ve en las guías WordPress .si. Solo lectura.
+// Busca dónde se genera el pie de las guías WordPress .si. Solo lectura.
 if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
-$ctx = stream_context_create(['http' => ['timeout' => 20, 'user_agent' => 'Mozilla/5.0 (pie)'], 'ssl' => ['verify_peer' => true]]);
 foreach (['sitges','santperederibes','castelldefels','santcugat','vilanova','garraf','eivissa'] as $d) {
-  $h = @file_get_contents("https://$d.si/", false, $ctx);
-  echo "== $d.si (" . strlen((string)$h) . " bytes)\n";
-  if (!$h) continue;
-  $i = strripos($h, '<footer'); $j = strripos($h, '</footer>');
-  $f = $i !== false ? substr($h, $i, ($j !== false ? $j + 9 : $i + 3000) - $i) : '(sin <footer>) ' . substr($h, -2500);
-  $f = preg_replace('~<(script|style|svg)\b.*?</\1>~is', '', $f);
-  $f = preg_replace('/\s+/', ' ', $f);
-  echo mb_substr($f, 0, 2200), "\n";
-  if (preg_match_all('/.{0,100}(?:©|&copy;|&#169;).{0,100}/u', $h, $m)) echo "COPY: ", implode(' || ', array_slice($m[0], 0, 3)), "\n";
+  $p = "/home/u235595016/domains/$d.si/public_html/wp-content";
+  echo "== $d.si\n";
+  foreach (array_merge(glob("$p/themes/*", GLOB_ONLYDIR) ?: [], glob("$p/plugins/*", GLOB_ONLYDIR) ?: [], ["$p/mu-plugins"]) as $dir) {
+    if (!is_dir($dir)) continue;
+    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+    $n = 0;
+    foreach ($it as $f) {
+      if (++$n > 4000) break;
+      if (!preg_match('/\.php$/', $f->getFilename())) continue;
+      $c = @file_get_contents($f->getPathname()); if ($c === false) continue;
+      if (strpos($c, 'Datos del directorio') === false && strpos($c, 'ssi-footer__credit') === false) continue;
+      foreach (explode("\n", $c) as $i => $l) if (strpos($l, 'Datos del directorio') !== false || strpos($l, 'ssi-footer__credit') !== false || strpos($l, 'Data from') !== false)
+        echo substr($f->getPathname(), strlen($p) + 1), ':', $i + 1, ': ', mb_substr(trim($l), 0, 330), "\n";
+    }
+  }
 }
