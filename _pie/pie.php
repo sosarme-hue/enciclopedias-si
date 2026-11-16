@@ -121,15 +121,15 @@ foreach ($doms as $d) {
       if ($n) {
         $rel = []; $raizlen = strlen($raiz) + 1; foreach (array_keys($cambios) as $f) $rel[] = substr($f, $raizlen);
         @mkdir($COPIAS, 0700, true);
-        $copia = "$COPIAS/$d-" . date('Ymd-His') . '-' . sprintf('%06d', (int)(microtime(true) * 1e6) % 1000000) . '.tar';
-        if (file_exists($copia) || file_exists("$copia.gz")) { $log[$d] = ['error' => 'la copia ya existe']; $error = true; break; }
-        $lista = tempnam(sys_get_temp_dir(), 'pie'); file_put_contents($lista, implode("\n", $rel) . "\n");
-        $o = []; exec('tar -C ' . escapeshellarg($raiz) . ' -cf ' . escapeshellarg($copia) . ' -T ' . escapeshellarg($lista) . ' 2>&1', $o, $rc);
-        unlink($lista);
-        if ($rc !== 0 || !is_file($copia)) { $log[$d] = ['error' => 'no se pudo hacer la copia', 'tar' => $o]; $error = true; break; }
-        $dentro = []; exec('tar -tf ' . escapeshellarg($copia) . ' 2>/dev/null', $dentro);
-        if (count($dentro) < $n) { $log[$d] = ['error' => 'copia incompleta', 'en_copia' => count($dentro), 'a_cambiar' => $n]; $error = true; break; }
-        exec('gzip -f ' . escapeshellarg($copia)); if (is_file("$copia.gz")) $copia .= '.gz';
+        $copia = "$COPIAS/$d-" . date('Ymd-His') . '-' . sprintf('%06d', (int)(microtime(true) * 1e6) % 1000000);
+        if (file_exists($copia)) { $log[$d] = ['error' => 'la copia ya existe']; $error = true; break; }
+        // copia previa: cada fichero original, tal cual, en la misma ruta relativa (sin exec, que el servidor no permite)
+        $mal = 0;
+        foreach ($rel as $r) {
+          $dst = "$copia/$r"; @mkdir(dirname($dst), 0700, true);
+          if (!copy("$raiz/$r", $dst) || md5_file($dst) !== md5_file("$raiz/$r")) $mal++;
+        }
+        if ($mal) { $log[$d] = ['error' => 'copia incompleta', 'fallos' => $mal, 'copia' => $copia]; $error = true; break; }
         $esc = 0; foreach ($cambios as $f => $c) { $t = "$f.pie-tmp"; if (file_put_contents($t, $c) !== false && rename($t, $f)) $esc++; }
         $prev = is_file("$AQUI/apl-$d.json") ? json_decode(file_get_contents("$AQUI/apl-$d.json"), true) : ['cambiados' => 0, 'copias' => []];
         $prev['cambiados'] += $esc; $prev['copias'][] = $copia; $prev['ultimo'] = ['cambiados' => $esc, 'ya_tenian' => $ya, 'sin_pie' => $omitidos, 'quedan' => $quedan, 'ejemplos' => array_slice($rel, 0, 5), 'hora' => date('c')];
@@ -148,9 +148,14 @@ foreach ($doms as $d) {
     } else break;
   }
   if ($modo === 'restaurar') {
-    $cs = glob("$COPIAS/$d-*.tar*"); sort($cs);
+    $cs = glob("$COPIAS/$d-*", GLOB_ONLYDIR); sort($cs);
     if (!$cs) { $log[$d] = 'sin copia'; continue; }
-    $res = []; foreach ($cs as $c) { $o = []; exec('tar -C ' . escapeshellarg($raiz) . ' -xf ' . escapeshellarg($c) . ' 2>&1', $o, $rc); $res[$c] = $rc; }
+    $res = [];
+    foreach ($cs as $c) { $ok = 0; $ko = 0;
+      foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($c, FilesystemIterator::SKIP_DOTS)) as $f) {
+        $r = substr($f->getPathname(), strlen($c) + 1); $t = "$raiz/$r.pie-tmp";
+        if (copy($f->getPathname(), $t) && rename($t, "$raiz/$r")) $ok++; else $ko++; }
+      $res[$c] = ['restaurados' => $ok, 'fallos' => $ko]; }
     @unlink("$AQUI/apl-$d.json");
     $log[$d] = ['restaurado_desde' => $res];
   }
