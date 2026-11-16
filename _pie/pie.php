@@ -8,6 +8,8 @@ $AQUI = __DIR__;
 $COPIAS = "$HOME/copias-pie";
 $modo = $argv[1] ?? 'inventario';
 $doms = array_filter(explode(',', $argv[2] ?? ''));
+$TODAS = ['classicapedia.com','clasicapedia.com','filopedia.com','pinacopedia.com','medicapedia.org','cinematopedia.com','newtonpedia.com','culinapedia.com','mythicapedia.com','zodiacopedia.com','ludicopedia.com','celebraciones.org','catdogpedia.com','tenispedia.com','iapedia.si','classicalarchive.org'];
+if ($doms === ['todas']) $doms = $TODAS;
 $URL = 'https://creativecommons.org/licenses/by-nc/4.0/deed.';
 $TXT = [
  'es' => ['Contenido bajo licencia', 'salvo indicación en contrario'],
