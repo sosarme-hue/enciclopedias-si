@@ -42,6 +42,30 @@ function norm($s) { $s = preg_replace('/href="[^"]*"/', 'href', $s); $s = preg_r
 $REGLAS = is_file("$AQUI/reglas.php") ? include "$AQUI/reglas.php" : [];
 $lockg = fopen("$AQUI/pie.lock", 'c'); if (!flock($lockg, LOCK_EX | LOCK_NB)) { echo "ocupado\n"; exit; }
 $log = [];
+
+if ($modo === 'wpinfo') {
+  $WP = ['sitges.si','santperederibes.si','castelldefels.si','santcugat.si','vilanova.si','garraf.si','eivissa.si'];
+  if ($doms === ['todas'] || !$doms) $doms = $WP;
+  foreach ($doms as $d) {
+    $p = "$HOME/domains/$d/public_html";
+    $wp = function ($args) use ($p) { $o = []; exec('wp --path=' . escapeshellarg($p) . ' --skip-plugins --skip-themes ' . $args . ' 2>&1', $o); return implode("\n", $o); };
+    $r = [];
+    $r['tema'] = $wp('theme list --status=active --fields=name,version,template --format=json');
+    $r['hijo_padre'] = $wp('option get template') . ' / ' . $wp('option get stylesheet');
+    $mods = json_decode($wp('theme mod list --format=json'), true) ?: [];
+    $r['mods'] = [];
+    foreach ($mods as $m) { $k = $m['key'] ?? ''; $v = is_string($m['value'] ?? null) ? $m['value'] : json_encode($m['value'] ?? null, JSON_UNESCAPED_UNICODE);
+      if (preg_match('/foot|copy|credit|pie/i', $k) || preg_match('/©|&copy;/u', (string)$v)) $r['mods'][$k] = mb_substr((string)$v, 0, 400); }
+    $r['plugins_activos'] = $wp('plugin list --status=active --field=name');
+    $r['widgets_pie'] = mb_substr($wp('widget list footer-1 --format=json') . ' | ' . $wp('sidebar list --fields=id,name --format=json'), 0, 1500);
+    $t = trim($wp('option get stylesheet'));
+    foreach (glob("$p/wp-content/themes/$t/*.php") ?: [] as $f) { $c = file_get_contents($f); if (preg_match_all('/.{0,120}(©|&copy;|copyright).{0,160}/iu', $c, $m)) $r['tema_copy'][basename($f)] = array_slice($m[0], 0, 4); }
+    $r['opciones_copy'] = mb_substr($wp("db query \"SELECT option_name, LEFT(option_value,300) FROM wp_options WHERE option_value LIKE '%©%' OR option_value LIKE '%&copy;%' LIMIT 20\" --skip-column-names"), 0, 4000);
+    $log[$d] = $r;
+  }
+}
+
+if ($modo !== 'wpinfo')
 foreach ($doms as $d) {
   $raiz = "$HOME/domains/$d/public_html";
   if (!is_dir($raiz)) { $log[$d] = 'no existe'; continue; }
