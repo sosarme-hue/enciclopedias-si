@@ -39,6 +39,7 @@ function ficheros($raiz) {
   return $out;
 }
 function norm($s) { $s = preg_replace('/href="[^"]*"/', 'href', $s); $s = preg_replace('/\s+/', ' ', $s); return trim($s); }
+$REGLAS = is_file("$AQUI/reglas.php") ? include "$AQUI/reglas.php" : [];
 $log = [];
 foreach ($doms as $d) {
   $raiz = "$HOME/domains/$d/public_html";
@@ -62,7 +63,47 @@ foreach ($doms as $d) {
     arsort($r['dirs']); $r['dirs'] = array_slice($r['dirs'], 0, 15, true);
     $log[$d] = $r;
   }
+  if ($modo === 'aplicar') {
+    $lock = fopen("$AQUI/aplicar.lock", 'c'); if (!flock($lock, LOCK_EX | LOCK_NB)) { echo "ocupado\n"; exit; }
+    $cfg = $REGLAS[$d] ?? null; if (!$cfg) { $log[$d] = 'sin reglas'; continue; }
+    $cambios = []; $omitidos = 0; $ya = 0;
+    foreach ($fs as $f) {
+      $s = @file_get_contents($f); if ($s === false) continue;
+      if (strpos($s, 'creativecommons.org/licenses/by-nc/4.0') !== false) { $ya++; continue; }
+      $L = linea(idioma($s)); $n = 0;
+      if (!empty($cfg['sustituir']) && preg_match($cfg['sustituir'], $s)) {
+        $nuevo = preg_replace_callback($cfg['sustituir'], function ($m) use ($L, $cfg) { return strtr($cfg['por'], ['LINEA' => $L, '$1' => $m[1] ?? '', '$2' => $m[2] ?? '']); }, $s, 1);
+      } elseif (!empty($cfg['insertar'])) {
+        $i = strripos($s, $cfg['insertar']); if ($i === false) { $omitidos++; continue; }
+        $nuevo = substr($s, 0, $i) . str_replace('LINEA', $L, $cfg['html']) . substr($s, $i);
+      } else { $omitidos++; continue; }
+      if ($nuevo === null || $nuevo === $s) { $omitidos++; continue; }
+      $cambios[$f] = $nuevo;
+    }
+    $rel = []; $raizlen = strlen($raiz) + 1; foreach (array_keys($cambios) as $f) $rel[] = substr($f, $raizlen);
+    $n = count($cambios);
+    if ($n) {
+      @mkdir($COPIAS, 0700, true);
+      $copia = "$COPIAS/$d-" . date('Ymd-His') . '.tar';
+      $lista = tempnam(sys_get_temp_dir(), 'pie'); file_put_contents($lista, implode("\n", $rel) . "\n");
+      exec('tar -C ' . escapeshellarg($raiz) . ' -cf ' . escapeshellarg($copia) . ' -T ' . escapeshellarg($lista) . ' 2>&1', $o, $rc);
+      unlink($lista);
+      if ($rc !== 0 || !is_file($copia)) { $log[$d] = ['error' => 'no se pudo hacer la copia', 'tar' => $o]; continue; }
+      exec('tar -tf ' . escapeshellarg($copia) . ' 2>/dev/null', $dentro);
+      if (count($dentro) < $n) { $log[$d] = ['error' => 'copia incompleta', 'en_copia' => count($dentro), 'a_cambiar' => $n]; continue; }
+      exec('gzip -f ' . escapeshellarg($copia)); if (is_file("$copia.gz")) $copia .= '.gz';
+      $esc = 0; foreach ($cambios as $f => $c) { $t = "$f.pie-tmp"; if (file_put_contents($t, $c) !== false && rename($t, $f)) $esc++; }
+      $log[$d] = ['cambiados' => $esc, 'ya_tenian' => $ya, 'sin_pie' => $omitidos, 'copia' => $copia, 'ejemplos' => array_slice($rel, 0, 5)];
+    } else $log[$d] = ['cambiados' => 0, 'ya_tenian' => $ya, 'sin_pie' => $omitidos];
+  }
+  if ($modo === 'restaurar') {
+    $cs = glob("$COPIAS/$d-*.tar*"); sort($cs); $c = end($cs);
+    if (!$c) { $log[$d] = 'sin copia'; continue; }
+    exec('tar -C ' . escapeshellarg($raiz) . ' -xf ' . escapeshellarg($c) . ' 2>&1', $o, $rc);
+    $log[$d] = ['restaurado_desde' => $c, 'rc' => $rc];
+  }
 }
+
 $f = "$AQUI/informe-$modo.json";
 file_put_contents($f, json_encode($log, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 echo "ok $modo " . implode(',', $doms) . "\n";
