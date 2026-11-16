@@ -7,4 +7,5 @@ return [
   'catdogpedia.com' => ['insertar' => '</footer>', 'html' => '<p class="fuentes">LINEA</p>'],
   'ludicopedia.com' => ['solo' => ['js/comun.js'], 'sustituir' => '~(Créditos de las fotos</a></nav>)(</div>`;)~u', 'por' => '$1<div style="margin-top:.6em">LINEA</div>$2'],
   'zodiacopedia.com' => ['insertar' => '</footer>', 'html' => '<br>LINEA'],
+  'culinapedia.com' => ['insertar' => '</footer>', 'html' => '<p>LINEA</p>'],
 ];
