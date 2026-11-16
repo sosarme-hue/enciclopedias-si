@@ -40,6 +40,7 @@ function ficheros($raiz) {
 }
 function norm($s) { $s = preg_replace('/href="[^"]*"/', 'href', $s); $s = preg_replace('/\s+/', ' ', $s); return trim($s); }
 $REGLAS = is_file("$AQUI/reglas.php") ? include "$AQUI/reglas.php" : [];
+$lockg = fopen("$AQUI/pie.lock", 'c'); if (!flock($lockg, LOCK_EX | LOCK_NB)) { echo "ocupado\n"; exit; }
 $log = [];
 foreach ($doms as $d) {
   $raiz = "$HOME/domains/$d/public_html";
@@ -64,7 +65,6 @@ foreach ($doms as $d) {
     $log[$d] = $r;
   }
   if ($modo === 'aplicar') {
-    $lock = fopen("$AQUI/aplicar.lock", 'c'); if (!flock($lock, LOCK_EX | LOCK_NB)) { echo "ocupado\n"; exit; }
     $cfg = $REGLAS[$d] ?? null; if (!$cfg) { $log[$d] = 'sin reglas'; continue; }
     $cambios = []; $omitidos = 0; $ya = 0;
     foreach ($fs as $f) {
@@ -104,6 +104,7 @@ foreach ($doms as $d) {
   }
 }
 
-$f = "$AQUI/informe-$modo.json";
+$f = "$AQUI/informe-$modo-" . (count($doms) > 1 ? "varias" : ($doms[0] ?? "x")) . ".json";
+if (is_file($f)) { $prev = json_decode(file_get_contents($f), true) ?: []; $log = $log + $prev; }
 file_put_contents($f, json_encode($log, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 echo "ok $modo " . implode(',', $doms) . "\n";
