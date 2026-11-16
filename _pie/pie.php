@@ -38,6 +38,7 @@ function ficheros($raiz) {
   foreach ($it as $f) $out[] = $f->getPathname();
   return $out;
 }
+function guardar($aqui, $modo, $d, $r) { file_put_contents("$aqui/inv-$d.json", json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); }
 function norm($s) { $s = preg_replace('/href="[^"]*"/', 'href', $s); $s = preg_replace('/\s+/', ' ', $s); return trim($s); }
 $REGLAS = is_file("$AQUI/reglas.php") ? include "$AQUI/reglas.php" : [];
 $lockg = fopen("$AQUI/pie.lock", 'c'); if (!flock($lockg, LOCK_EX | LOCK_NB)) { echo "ocupado\n"; exit; }
@@ -62,6 +63,7 @@ if ($modo === 'wpinfo') {
     foreach (glob("$p/wp-content/themes/$t/*.php") ?: [] as $f) { $c = file_get_contents($f); if (preg_match_all('/.{0,120}(©|&copy;|copyright).{0,160}/iu', $c, $m)) $r['tema_copy'][basename($f)] = array_slice($m[0], 0, 4); }
     $r['opciones_copy'] = mb_substr($wp("db query \"SELECT option_name, LEFT(option_value,300) FROM " . trim($wp('db prefix')) . "options WHERE option_value LIKE '%©%' OR option_value LIKE '%&copy;%' LIMIT 20\" --skip-column-names"), 0, 4000);
     $log[$d] = $r;
+    guardar($AQUI, 'wp', $d, $r);
   }
 }
 
@@ -71,6 +73,7 @@ foreach ($doms as $d) {
   if (!is_dir($raiz)) { $log[$d] = 'no existe'; continue; }
   $fs = ficheros($raiz);
   if ($modo === 'inventario') {
+    if (is_file("$AQUI/inv-$d.json")) continue;
     $r = ['ficheros' => count($fs), 'git_raiz' => file_exists("$raiz/.git"), 'idiomas' => [], 'con_footer' => 0, 'ya_cc' => 0, 'copyright' => [], 'final_footer' => [], 'sin_footer_ejemplos' => [], 'dirs' => []];
     foreach ($fs as $f) {
       $s = @file_get_contents($f); if ($s === false) continue;
@@ -87,6 +90,7 @@ foreach ($doms as $d) {
     arsort($r['copyright']); $r['copyright'] = array_slice($r['copyright'], 0, 8, true);
     arsort($r['dirs']); $r['dirs'] = array_slice($r['dirs'], 0, 15, true);
     $log[$d] = $r;
+    guardar($AQUI, $modo, $d, $r);
   }
   if ($modo === 'aplicar') {
     $cfg = $REGLAS[$d] ?? null; if (!$cfg) { $log[$d] = 'sin reglas'; continue; }
