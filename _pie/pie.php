@@ -30,7 +30,7 @@ function ficheros($raiz) {
     function ($f, $k, $it) use ($raiz) {
       if ($f->isLink()) return false;
       if ($f->isDir()) { $n = $f->getFilename();
-        if ($n === '.git' || $n === 'node_modules' || $n === 'wp-content' || $n === 'wp-includes' || $n === 'wp-admin') return false;
+        if (in_array(strtolower($n), ['.git','node_modules','wp-content','wp-includes','wp-admin','img','imgs','imagenes','images','fotos','media','uploads','assets','css','js','fonts','thumbs','_og','cgi-bin','.well-known'], true)) return false;
         if (file_exists($f->getPathname() . '/.git')) return false; // subcarpeta con su propio repositorio
         return true; }
       return preg_match('/\.(html?|php)$/i', $f->getFilename());
