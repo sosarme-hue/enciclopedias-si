@@ -60,7 +60,7 @@ if ($modo === 'wpinfo') {
     $r['widgets_pie'] = mb_substr($wp('widget list footer-1 --format=json') . ' | ' . $wp('sidebar list --fields=id,name --format=json'), 0, 1500);
     $t = trim($wp('option get stylesheet'));
     foreach (glob("$p/wp-content/themes/$t/*.php") ?: [] as $f) { $c = file_get_contents($f); if (preg_match_all('/.{0,120}(©|&copy;|copyright).{0,160}/iu', $c, $m)) $r['tema_copy'][basename($f)] = array_slice($m[0], 0, 4); }
-    $r['opciones_copy'] = mb_substr($wp("db query \"SELECT option_name, LEFT(option_value,300) FROM wp_options WHERE option_value LIKE '%©%' OR option_value LIKE '%&copy;%' LIMIT 20\" --skip-column-names"), 0, 4000);
+    $r['opciones_copy'] = mb_substr($wp("db query \"SELECT option_name, LEFT(option_value,300) FROM " . trim($wp('db prefix')) . "options WHERE option_value LIKE '%©%' OR option_value LIKE '%&copy;%' LIMIT 20\" --skip-column-names"), 0, 4000);
     $log[$d] = $r;
   }
 }
