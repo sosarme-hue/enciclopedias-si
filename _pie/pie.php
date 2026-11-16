@@ -41,7 +41,7 @@ function ficheros($raiz) {
 function guardar($aqui, $modo, $d, $r) { file_put_contents("$aqui/inv-$d.json", json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); }
 function norm($s) { $s = preg_replace('/href="[^"]*"/', 'href', $s); $s = preg_replace('/\s+/', ' ', $s); return trim($s); }
 $REGLAS = is_file("$AQUI/reglas.php") ? include "$AQUI/reglas.php" : [];
-$lockg = fopen("$AQUI/pie2.lock", 'c'); if (!flock($lockg, LOCK_EX | LOCK_NB)) { echo "ocupado\n"; exit; }
+$lockg = fopen("$AQUI/pie3.lock", 'c'); if (!flock($lockg, LOCK_EX | LOCK_NB)) { echo "ocupado\n"; exit; }
 $log = [];
 
 if ($modo === 'wpinfo') {
