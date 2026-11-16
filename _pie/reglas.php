@@ -8,4 +8,11 @@ return [
   'ludicopedia.com' => ['solo' => ['js/comun.js'], 'sustituir' => '~(Créditos de las fotos</a></nav>)(</div>`;)~u', 'por' => '$1<div style="margin-top:.6em">LINEA</div>$2'],
   'zodiacopedia.com' => ['insertar' => '</footer>', 'html' => '<br>LINEA'],
   'culinapedia.com' => ['insertar' => '</footer>', 'html' => '<p>LINEA</p>'],
+  'newtonpedia.com' => ['insertar' => '</footer>', 'html' => '<p>LINEA</p>'],
+  'tenispedia.com' => ['insertar' => '</footer>', 'html' => '<p>LINEA</p>'],
+  'cinematopedia.com' => ['sustituir' => '~ · ©\s*2026 Cinematopedia</p>~u', 'por' => '</p><p>LINEA</p>'],
+  'pinacopedia.com' => ['sustituir' => '~ · ©\s*2026 Pinacopedia</p>~u', 'por' => '</p><p>LINEA</p>'],
+  'filopedia.com' => ['sustituir' => '~ · ©\s*2026 Filopedia</p>~u', 'por' => '</p><p>LINEA</p>'],
+  'medicapedia.org' => ['sustituir' => '~ · ©\s*2026 Medicapedia</p>~u', 'por' => '</p><p>LINEA</p>'],
+  'classicapedia.com' => ['sustituir' => '~ · ©\s*2026 Classicapedia</p>~u', 'por' => '</p><p class="legales">LINEA</p>'],
 ];

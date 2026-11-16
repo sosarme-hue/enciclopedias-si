@@ -42,6 +42,7 @@ function guardar($aqui, $modo, $d, $r) { file_put_contents("$aqui/inv-$d.json", 
 function norm($s) { $s = preg_replace('/href="[^"]*"/', 'href', $s); $s = preg_replace('/\s+/', ' ', $s); return trim($s); }
 $REGLAS = is_file("$AQUI/reglas.php") ? include "$AQUI/reglas.php" : [];
 $lockg = fopen("$AQUI/pie5-$modo.lock", 'c'); if (!flock($lockg, LOCK_EX | LOCK_NB)) { echo "ocupado\n"; exit; }
+$T0 = time();
 $log = [];
 
 if ($modo === 'wpinfo') {
@@ -98,45 +99,53 @@ foreach ($doms as $d) {
     if (is_file("$AQUI/apl-$d.json") && !empty(json_decode(file_get_contents("$AQUI/apl-$d.json"), true)['terminado'])) continue;
     $cfg = $REGLAS[$d] ?? null; if (!$cfg) { $log[$d] = 'sin reglas'; continue; }
     $fs = !empty($cfg['solo']) ? array_map(function ($x) use ($raiz) { return "$raiz/$x"; }, (array)$cfg['solo']) : ficheros($raiz);
-    $cambios = []; $omitidos = 0; $ya = 0;
-    $LOTE = 4000; $quedan = false;
-    foreach ($fs as $f) {
-      if (count($cambios) >= $LOTE) { $quedan = true; break; }
-      $s = @file_get_contents($f); if ($s === false) continue;
-      if (strpos($s, 'creativecommons.org/licenses/by-nc/4.0') !== false) { $ya++; continue; }
-      $L = linea(idioma($s)); $n = 0;
-      if (!empty($cfg['sustituir']) && preg_match($cfg['sustituir'], $s)) {
-        $nuevo = preg_replace_callback($cfg['sustituir'], function ($m) use ($L, $cfg) { return strtr($cfg['por'], ['LINEA' => $L, '$1' => $m[1] ?? '', '$2' => $m[2] ?? '']); }, $s, 1);
-      } elseif (!empty($cfg['insertar'])) {
-        $i = strripos($s, $cfg['insertar']); if ($i === false) { $omitidos++; continue; }
-        $nuevo = substr($s, 0, $i) . str_replace('LINEA', $L, $cfg['html']) . substr($s, $i);
-      } else { $omitidos++; continue; }
-      if ($nuevo === null || $nuevo === $s) { $omitidos++; continue; }
-      $cambios[$f] = $nuevo;
+    $omitidos = 0; $ya = 0; $LOTE = 3000; $total = count($fs); $ix = 0; $error = false;
+    while (true) {
+      $cambios = []; $quedan = false;
+      for (; $ix < $total; $ix++) {
+        if (count($cambios) >= $LOTE) { $quedan = true; break; }
+        $f = $fs[$ix];
+        $s = @file_get_contents($f); if ($s === false) continue;
+        if (strpos($s, 'creativecommons.org/licenses/by-nc/4.0') !== false) { $ya++; continue; }
+        $L = linea(idioma($s));
+        if (!empty($cfg['sustituir']) && preg_match($cfg['sustituir'], $s)) {
+          $nuevo = preg_replace_callback($cfg['sustituir'], function ($m) use ($L, $cfg) { return strtr($cfg['por'], ['LINEA' => $L, '$1' => $m[1] ?? '', '$2' => $m[2] ?? '']); }, $s, 1);
+        } elseif (!empty($cfg['insertar'])) {
+          $i = strripos($s, $cfg['insertar']); if ($i === false) { $omitidos++; continue; }
+          $nuevo = substr($s, 0, $i) . str_replace('LINEA', $L, $cfg['html']) . substr($s, $i);
+        } else { $omitidos++; continue; }
+        if ($nuevo === null || $nuevo === $s) { $omitidos++; continue; }
+        $cambios[$f] = $nuevo;
+      }
+      $n = count($cambios);
+      if ($n) {
+        $rel = []; $raizlen = strlen($raiz) + 1; foreach (array_keys($cambios) as $f) $rel[] = substr($f, $raizlen);
+        @mkdir($COPIAS, 0700, true);
+        $copia = "$COPIAS/$d-" . date('Ymd-His') . '-' . sprintf('%06d', (int)(microtime(true) * 1e6) % 1000000) . '.tar';
+        if (file_exists($copia) || file_exists("$copia.gz")) { $log[$d] = ['error' => 'la copia ya existe']; $error = true; break; }
+        $lista = tempnam(sys_get_temp_dir(), 'pie'); file_put_contents($lista, implode("\n", $rel) . "\n");
+        $o = []; exec('tar -C ' . escapeshellarg($raiz) . ' -cf ' . escapeshellarg($copia) . ' -T ' . escapeshellarg($lista) . ' 2>&1', $o, $rc);
+        unlink($lista);
+        if ($rc !== 0 || !is_file($copia)) { $log[$d] = ['error' => 'no se pudo hacer la copia', 'tar' => $o]; $error = true; break; }
+        $dentro = []; exec('tar -tf ' . escapeshellarg($copia) . ' 2>/dev/null', $dentro);
+        if (count($dentro) < $n) { $log[$d] = ['error' => 'copia incompleta', 'en_copia' => count($dentro), 'a_cambiar' => $n]; $error = true; break; }
+        exec('gzip -f ' . escapeshellarg($copia)); if (is_file("$copia.gz")) $copia .= '.gz';
+        $esc = 0; foreach ($cambios as $f => $c) { $t = "$f.pie-tmp"; if (file_put_contents($t, $c) !== false && rename($t, $f)) $esc++; }
+        $prev = is_file("$AQUI/apl-$d.json") ? json_decode(file_get_contents("$AQUI/apl-$d.json"), true) : ['cambiados' => 0, 'copias' => []];
+        $prev['cambiados'] += $esc; $prev['copias'][] = $copia; $prev['ultimo'] = ['cambiados' => $esc, 'ya_tenian' => $ya, 'sin_pie' => $omitidos, 'quedan' => $quedan, 'ejemplos' => array_slice($rel, 0, 5), 'hora' => date('c')];
+        file_put_contents("$AQUI/apl-$d.json", json_encode($prev, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $log[$d] = $prev;
+      }
+      if (!$quedan) break;
+      if (time() - $T0 > 200) break; // la siguiente ejecución sigue donde se quedó
     }
-    $rel = []; $raizlen = strlen($raiz) + 1; foreach (array_keys($cambios) as $f) $rel[] = substr($f, $raizlen);
-    $n = count($cambios);
-    if ($n) {
-      @mkdir($COPIAS, 0700, true);
-      $copia = "$COPIAS/$d-" . date('Ymd-His') . '-' . sprintf('%06d', (int)(microtime(true) * 1e6) % 1000000) . '.tar';
-      if (file_exists($copia) || file_exists("$copia.gz")) { $log[$d] = ['error' => 'la copia ya existe']; break; }
-      $lista = tempnam(sys_get_temp_dir(), 'pie'); file_put_contents($lista, implode("\n", $rel) . "\n");
-      exec('tar -C ' . escapeshellarg($raiz) . ' -cf ' . escapeshellarg($copia) . ' -T ' . escapeshellarg($lista) . ' 2>&1', $o, $rc);
-      unlink($lista);
-      if ($rc !== 0 || !is_file($copia)) { $log[$d] = ['error' => 'no se pudo hacer la copia', 'tar' => $o]; continue; }
-      exec('tar -tf ' . escapeshellarg($copia) . ' 2>/dev/null', $dentro);
-      if (count($dentro) < $n) { $log[$d] = ['error' => 'copia incompleta', 'en_copia' => count($dentro), 'a_cambiar' => $n]; continue; }
-      exec('gzip -f ' . escapeshellarg($copia)); if (is_file("$copia.gz")) $copia .= '.gz';
-      $esc = 0; foreach ($cambios as $f => $c) { $t = "$f.pie-tmp"; if (file_put_contents($t, $c) !== false && rename($t, $f)) $esc++; }
-      $prev = is_file("$AQUI/apl-$d.json") ? json_decode(file_get_contents("$AQUI/apl-$d.json"), true) : ['cambiados' => 0, 'copias' => []];
-      $prev['cambiados'] += $esc; $prev['copias'][] = $copia; $prev['ultimo'] = ['cambiados' => $esc, 'ya_tenian' => $ya, 'sin_pie' => $omitidos, 'quedan' => $quedan, 'ejemplos' => array_slice($rel, 0, 5), 'hora' => date('c')];
-      file_put_contents("$AQUI/apl-$d.json", json_encode($prev, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-      $log[$d] = $prev;
-      if ($quedan) break; // un lote por ejecución; la siguiente sigue
-    } else { $log[$d] = ['cambiados' => 0, 'ya_tenian' => $ya, 'sin_pie' => $omitidos, 'terminado' => true];
+    if ($error) break;
+    if (!$quedan) {
       $prev = is_file("$AQUI/apl-$d.json") ? json_decode(file_get_contents("$AQUI/apl-$d.json"), true) : ['cambiados' => 0, 'copias' => []];
       $prev['terminado'] = ['ya_tenian' => $ya, 'sin_pie' => $omitidos, 'hora' => date('c')];
-      file_put_contents("$AQUI/apl-$d.json", json_encode($prev, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); }
+      file_put_contents("$AQUI/apl-$d.json", json_encode($prev, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+      $log[$d] = $prev;
+    } else break;
   }
   if ($modo === 'restaurar') {
     $cs = glob("$COPIAS/$d-*.tar*"); sort($cs);
