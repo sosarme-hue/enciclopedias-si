@@ -71,9 +71,9 @@ if ($modo !== 'wpinfo')
 foreach ($doms as $d) {
   $raiz = "$HOME/domains/$d/public_html";
   if (!is_dir($raiz)) { $log[$d] = 'no existe'; continue; }
-  $fs = ficheros($raiz);
   if ($modo === 'inventario') {
     if (is_file("$AQUI/inv-$d.json")) continue;
+    $fs = ficheros($raiz);
     $r = ['muestra_cada' => max(1, intdiv(count($fs), 400)), 'ficheros' => count($fs), 'git_raiz' => file_exists("$raiz/.git"), 'idiomas' => [], 'con_footer' => 0, 'ya_cc' => 0, 'copyright' => [], 'final_footer' => [], 'sin_footer_ejemplos' => [], 'dirs' => []];
     $paso = max(1, intdiv(count($fs), 400));
     foreach ($fs as $ix => $f) {
@@ -97,6 +97,7 @@ foreach ($doms as $d) {
   if ($modo === 'aplicar') {
     if (is_file("$AQUI/apl-$d.json") && !empty(json_decode(file_get_contents("$AQUI/apl-$d.json"), true)['terminado'])) continue;
     $cfg = $REGLAS[$d] ?? null; if (!$cfg) { $log[$d] = 'sin reglas'; continue; }
+    $fs = !empty($cfg['solo']) ? array_map(function ($x) use ($raiz) { return "$raiz/$x"; }, (array)$cfg['solo']) : ficheros($raiz);
     $cambios = []; $omitidos = 0; $ya = 0;
     $LOTE = 4000; $quedan = false;
     foreach ($fs as $f) {
