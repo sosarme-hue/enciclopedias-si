@@ -1,0 +1,6 @@
+Cómo se programan las publicaciones de farmacos.ai (mismo método que Tenispedia):
+- Imágenes y textos: rama claude/project-thread-yhu09y del repo sosarme-hue/enciclopedias-si, carpeta facebook-farmacos/es y facebook-farmacos/en (plan.json + NNN.jpg). No toca ninguna web.
+- es = página «Fármacos y Salud»; en = página «Farmacos.ai». Antes de pegar popup.js, en la pestaña emergente: window.__lang='es' (o 'en').
+- En driver.js hay que cambiar asset_id=1470986026096954 (Tenispedia) por el asset_id de la página que toque.
+- Plan: n=1-225 por idioma, 25 nov 2026 - 7 feb 2027, 10:00 / 13:30 / 20:30 hora de Madrid. Límite de Facebook: 29 días por adelantado, así que se programa por tandas.
+- Probar primero con un solo n.
