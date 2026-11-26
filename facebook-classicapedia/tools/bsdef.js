@@ -22,8 +22,8 @@ window.__prep=async(o)=>{const S=window.__S;const log=[];
  const di=document.querySelector('input[placeholder="dd/mm/aaaa"]');di.click();di.focus();await S(800);
  const [Y,M,D]=o.date.split('-').map(Number);const dd=new Date(Y,M-1,D);const lab=`${window.__DOW[dd.getDay()]}, ${D} ${window.__MES[M-1]} ${Y}`;
  for(let k=0;k<3;k++){const c=document.querySelector(`[role=button][aria-label="${lab}"]`);if(c){c.click();break}
-   const hdr=[...document.querySelectorAll('div,span')].find(e=>/^(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre) \d{4}$/.test(e.innerText.trim())&&e.children.length===0);
-   let p=hdr;let nxt=null;for(let up=0;up<5&&p&&!nxt;up++){p=p.parentElement;const bs=[...p.querySelectorAll('[role=button],button')].filter(b=>!b.getAttribute('aria-label')||/siguiente|next/i.test(b.getAttribute('aria-label')));if(bs.length>=2)nxt=bs[bs.length-1]}
+   const hdr=[...document.querySelectorAll('h2')].find(e=>/^(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre) \d{4}$/.test(e.innerText.trim()));
+   let p=hdr;let nxt=null;for(let up=0;up<6&&p&&!nxt;up++){p=p.parentElement;const bs=[...p.querySelectorAll('[role=button]')].filter(b=>!b.getAttribute('aria-label'));if(bs.length>=2)nxt=bs[bs.length-1]}
    if(!nxt)return 'no next month';nxt.click();await S(700);}
  await S(700);const want=`${String(D).padStart(2,'0')}/${String(M).padStart(2,'0')}/${Y}`;if(di.value!==want)return 'date fail '+di.value+' want '+want;
  document.querySelector('input[aria-label=horas]').focus();return 'ready';};
